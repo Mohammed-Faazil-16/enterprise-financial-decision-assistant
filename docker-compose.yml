@@ -1,75 +1,47 @@
-version: "3.9"
-
-name: enterprise-financial-decision-assistant
-
-networks:
-  efda_net:
-    driver: bridge
-
-volumes:
-  pg_data:
-  redis_data:
-  ollama_data:
-  faiss_data:
-
 services:
 
   postgres:
     image: postgres:15-alpine
     container_name: efda-postgres
-    restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - pg_data:/var/lib/postgresql/data
-    networks:
-      - efda_net
+      POSTGRES_USER: efda_user
+      POSTGRES_PASSWORD: efda_password
+      POSTGRES_DB: efda
     ports:
       - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U efda_user -d efda"]
+      interval: 5s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
     container_name: efda-redis
-    restart: unless-stopped
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
-    networks:
-      - efda_net
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
+      interval: 5s
+      timeout: 3s
       retries: 5
 
   ollama:
     image: ollama/ollama:latest
     container_name: efda-ollama
-    restart: unless-stopped
-    volumes:
-      - ollama_data:/root/.ollama
-    networks:
-      - efda_net
     ports:
       - "11434:11434"
-    environment:
-      OLLAMA_KEEP_ALIVE: "24h"
+    volumes:
+      - ollama_data:/root/.ollama
 
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
     container_name: efda-backend
-    restart: unless-stopped
     env_file:
       - .env
     depends_on:
@@ -77,17 +49,14 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      ollama:
-        condition: service_started
-    volumes:
-      - faiss_data:/app/data/faiss
-    networks:
-      - efda_net
     ports:
       - "8000:8000"
-    user: "0"
     command: >
-      sh -c "
-      chown -R appuser:appuser /app/data &&
-      su appuser -c 'uvicorn app.main:app --host 0.0.0.0 --port 8000'
-      "
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+
+volumes:
+  pg_data:
+  redis_data:
+  ollama_data:
