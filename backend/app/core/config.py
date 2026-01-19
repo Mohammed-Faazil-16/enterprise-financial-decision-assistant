@@ -1,29 +1,22 @@
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
+from pydantic import Field
 
 
 class Settings(BaseSettings):
-    # --------------------
-    # App
-    # --------------------
     APP_NAME: str = "Enterprise Financial Decision Assistant"
     ENV: str = "local"
 
-    # --------------------
-    # Postgres
-    # --------------------
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
-    POSTGRES_HOST: str
+    POSTGRES_USER: str = Field(...)
+    POSTGRES_PASSWORD: str = Field(...)
+    POSTGRES_DB: str = Field(...)
+    POSTGRES_HOST: str = Field(...)
     POSTGRES_PORT: int = 5432
 
-    # --------------------
-    # Derived
-    # --------------------
     @property
     def database_url(self) -> str:
         return (
-            f"postgresql+asyncpg://{self.POSTGRES_USER}:"
+            f"postgresql+asyncpg://"
+            f"{self.POSTGRES_USER}:"
             f"{self.POSTGRES_PASSWORD}@"
             f"{self.POSTGRES_HOST}:"
             f"{self.POSTGRES_PORT}/"
