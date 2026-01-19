@@ -1,58 +1,38 @@
-from app.agents.state import DecisionState
 from app.inference.factory import get_inference_client
 from app.core.logging import get_logger
 
 logger = get_logger()
 
-
 class VerifierAgent:
-    """
-    Verifier Agent:
-    - Checks if analysis is grounded in provided policies
-    - Detects hallucinations or unsupported claims
-    - Flags compliance issues
-    """
-
     def __init__(self) -> None:
         self.inference = get_inference_client()
 
-    async def run(self, state: DecisionState) -> DecisionState:
-        if not state.analysis or not state.applicable_policies:
-            logger.warning(
-                "verifier_insufficient_input",
-                query=state.query,
-            )
-            state.verified = False
-            state.verification_notes = "Insufficient analysis or policy context."
+    async def run(self, state: dict) -> dict:
+        applicable = state.get("applicable_policies", [])
+        analysis = state.get("analysis", "")
+
+        if not analysis or not applicable:
+            state["verified"] = False
+            state["verification_notes"] = "Insufficient data"
             return state
 
         prompt = (
-            "You are a financial compliance verifier.\n"
-            "Your task is to verify whether the following analysis is fully supported "
-            "by the given policy clauses.\n\n"
-            "POLICY CLAUSES:\n"
-            + "\n---\n".join(state.applicable_policies)
-            + "\n\n"
-            "ANALYSIS:\n"
-            f"{state.analysis}\n\n"
-            "Answer with ONLY one of the following formats:\n"
-            "- VERIFIED: <short reason>\n"
-            "- NOT VERIFIED: <short reason>\n"
+            "Verify that analysis is supported by the given policies.\n\n"
+            "POLICIES:\n"
+            + "\n---\n".join(applicable) +
+            "\n\nANALYSIS:\n"
+            f"{analysis}\n\n"
+            "Answer with either:\n"
+            "- VERIFIED: <reason>\n"
+            "- NOT VERIFIED: <reason>"
         )
 
-        response = await self.inference.generate(prompt=prompt)
-        text = response.get("response", "").strip()
+        response = await self.inference.generate(prompt)
+        txt = response.get("response", "").strip()
 
-        if text.upper().startswith("VERIFIED"):
-            state.verified = True
-            state.verification_notes = text
+        if txt.upper().startswith("VERIFIED"):
+            state["verified"] = True
         else:
-            state.verified = False
-            state.verification_notes = text
-
-        logger.info(
-            "verifier_completed",
-            verified=state.verified,
-        )
-
+            state["verified"] = False
+        state["verification_notes"] = txt
         return state

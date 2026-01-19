@@ -1,20 +1,17 @@
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    create_async_engine,
+    AsyncSession,
+)
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 
-DATABASE_URL = (
-    f"postgresql+asyncpg://{settings.postgres_user}:"
-    f"{settings.postgres_password}@"
-    f"{settings.postgres_host}:"
-    f"{settings.postgres_port}/"
-    f"{settings.postgres_db}"
-)
+DATABASE_URL = settings.database_url
 
 engine = create_async_engine(
     DATABASE_URL,
-    pool_pre_ping=True,
     echo=False,
+    future=True,
 )
 
 AsyncSessionLocal = sessionmaker(
@@ -24,6 +21,9 @@ AsyncSessionLocal = sessionmaker(
 )
 
 
-async def get_db_session() -> AsyncSession:
+async def get_db():
     async with AsyncSessionLocal() as session:
-        yield session
+        try:
+            yield session
+        finally:
+            await session.close()

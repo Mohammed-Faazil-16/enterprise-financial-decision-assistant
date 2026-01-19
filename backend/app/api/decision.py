@@ -1,56 +1,65 @@
-from fastapi import APIRouter
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+import uuid
+import json
+import hashlib
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
-from app.agents.graph import build_decision_graph
-from app.retrieval.vector_store import VectorStore
+from app.db.session import get_db
+from app.db.models.decision import Decision
+from app.db.audit_events import log_event
+from app.decision.engine import decision_engine
+from app.core.logging import logger
 
-router = APIRouter(prefix="/decision", tags=["decision"])
-
-
-class DecisionRequest(BaseModel):
-    query: str = Field(..., min_length=5)
-
-
-class DecisionResponse(BaseModel):
-    decision: Optional[str]
-    confidence: float
-    analysis: Optional[str]
-    verification_notes: Optional[str]
-    evidence: List[str]
+router = APIRouter()
 
 
-@router.post("/", response_model=DecisionResponse)
-async def make_decision(payload: DecisionRequest):
-    """
-    Executes the full multi-agent financial decision workflow.
-    """
+@router.post("/decision")
+def make_decision(payload: dict, db: Session = Depends(get_db)):
+    try:
+        request_id = str(uuid.uuid4())
 
-    # 1️⃣ Retrieve evidence
-    vector_store = VectorStore()
-    evidence = vector_store.similarity_search(payload.query, k=5)
+        input_hash = hashlib.sha256(
+            json.dumps(payload, sort_keys=True).encode()
+        ).hexdigest()
 
-    # 2️⃣ Initialize LangGraph state as DICT (IMPORTANT)
-    state: Dict[str, Any] = {
-        "query": payload.query,
-        "evidence": evidence,
-        "applicable_policies": [],
-        "analysis": None,
-        "verified": False,
-        "verification_notes": None,
-        "decision": None,
-        "confidence": 0.0,
-    }
+        log_event(db, None, "DECISION_REQUESTED", {"request_id": request_id})
 
-    # 3️⃣ Run LangGraph workflow
-    graph = build_decision_graph()
-    final_state: Dict[str, Any] = await graph.ainvoke(state)
+        result = decision_engine.run(payload)
 
-    # 4️⃣ Return structured response
-    return {
-        "decision": final_state.get("decision"),
-        "confidence": final_state.get("confidence", 0.0),
-        "analysis": final_state.get("analysis"),
-        "verification_notes": final_state.get("verification_notes"),
-        "evidence": final_state.get("evidence", []),
-    }
+        decision_row = Decision(
+            request_id=request_id,
+            input_hash=input_hash,
+            input_payload=payload,
+
+            decision=result["decision"],
+            confidence=result["confidence"],
+            conditions=result.get("conditions"),
+
+            evidence=result["evidence"],
+            reasoning_summary=result["analysis"],
+            verification_notes=result.get("verification_notes"),
+
+            model_provider="ollama",
+            model_name=result.get("model", "unknown"),
+            model_version=None,
+
+            system_version="local-v1",
+        )
+
+        db.add(decision_row)
+        db.flush()
+
+        log_event(
+            db,
+            decision_row.id,
+            "DECISION_PERSISTED",
+            {"confidence": result["confidence"]},
+        )
+
+        db.commit()
+        return result
+
+    except Exception as e:
+        db.rollback()
+        logger.exception("Decision transaction failed")
+        raise HTTPException(status_code=500, detail="Decision failed")
