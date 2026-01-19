@@ -1,11 +1,14 @@
-from pydantic_settings import BaseSettings
+from pydantic import BaseSettings
 
 class Settings(BaseSettings):
     database_url: str
-    redis_url: str = "redis://redis:6379/0"
-    ollama_base_url: str = "http://ollama:11434"
 
     class Config:
         env_file = ".env"
 
 settings = Settings()
+
+# FORCE asyncpg (NO psycopg2 allowed)
+settings.database_url = settings.database_url.replace(
+    "postgresql+psycopg2", "postgresql+asyncpg"
+)
