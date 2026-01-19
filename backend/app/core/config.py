@@ -1,31 +1,31 @@
-from pydantic_settings import BaseSettings
 from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    APP_NAME: str = "Enterprise Financial Decision Assistant"
-    ENV: str = "local"
+    app_name: str = "Enterprise Financial Decision Assistant"
+    app_env: str = Field(default="local")
+    debug: bool = False
 
-    POSTGRES_USER: str = Field(...)
-    POSTGRES_PASSWORD: str = Field(...)
-    POSTGRES_DB: str = Field(...)
-    POSTGRES_HOST: str = Field(...)
-    POSTGRES_PORT: int = 5432
+    postgres_host: str = "postgres"
+    postgres_port: int = 5432
+    postgres_db: str = "efda"
+    postgres_user: str = "efda_user"
+    postgres_password: str = "efda_password"
 
     @property
     def database_url(self) -> str:
         return (
-            f"postgresql+asyncpg://"
-            f"{self.POSTGRES_USER}:"
-            f"{self.POSTGRES_PASSWORD}@"
-            f"{self.POSTGRES_HOST}:"
-            f"{self.POSTGRES_PORT}/"
-            f"{self.POSTGRES_DB}"
+            f"postgresql+asyncpg://{self.postgres_user}:"
+            f"{self.postgres_password}@"
+            f"{self.postgres_host}:{self.postgres_port}/"
+            f"{self.postgres_db}"
         )
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = {
+        "env_file": ".env",
+        "case_sensitive": False,
+    }
 
 
 settings = Settings()

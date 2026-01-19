@@ -1,49 +1,42 @@
 import logging
-import structlog
+import sys
 from pathlib import Path
-from app.core.config import settings
+
+LOG_FORMAT = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
+
+_audit_logger = None
 
 
-def setup_logging() -> None:
-    """
-    Configure structured JSON logging for the application.
-    """
-
+def setup_logging(level=logging.INFO):
     logging.basicConfig(
-        level=settings.app_log_level,
-        format="%(message)s",
-    )
-
-    structlog.configure(
-        processors=[
-            structlog.contextvars.merge_contextvars,
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.add_log_level,
-            structlog.processors.JSONRenderer(),
-        ],
-        wrapper_class=structlog.make_filtering_bound_logger(
-            getattr(logging, settings.app_log_level)
-        ),
-        cache_logger_on_first_use=True,
+        level=level,
+        format=LOG_FORMAT,
+        handlers=[logging.StreamHandler(sys.stdout)],
     )
 
 
-def get_logger():
-    """
-    Returns a structured logger instance.
-    """
-    return structlog.get_logger()
+def get_logger(name: str = "efda"):
+    return logging.getLogger(name)
 
 
-def setup_audit_log_file() -> None:
-    """
-    Ensure audit log path exists.
-    """
-    if not settings.enable_audit_logs:
-        return
+def setup_audit_log_file(log_dir: str = "logs", filename: str = "audit.log"):
+    global _audit_logger
 
-    audit_path = Path(settings.audit_log_path)
-    audit_path.parent.mkdir(parents=True, exist_ok=True)
+    Path(log_dir).mkdir(parents=True, exist_ok=True)
+    log_path = Path(log_dir) / filename
 
-    # Touch file so container has it ready
-    audit_path.touch(exist_ok=True)
+    logger = logging.getLogger("audit")
+    logger.setLevel(logging.INFO)
+
+    file_handler = logging.FileHandler(log_path)
+    file_handler.setFormatter(logging.Formatter(LOG_FORMAT))
+
+    logger.addHandler(file_handler)
+
+    _audit_logger = logger
+    return logger
+
+
+# DEFAULT LOGGER (for imports like `from app.core.logging import logger`)
+setup_logging()
+logger = get_logger()
