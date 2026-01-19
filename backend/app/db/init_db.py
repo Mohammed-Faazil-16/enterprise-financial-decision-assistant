@@ -1,3 +1,4 @@
+from app.db import audit_events
 from app.db.session import engine
 from app.db.models.base import Base
 from app.db.models.decision import Decision

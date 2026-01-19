@@ -1,26 +1,25 @@
 # ----------------------------
-# Web Framework
+# Core API
 # ----------------------------
 fastapi==0.110.0
 uvicorn[standard]==0.27.1
 
 # ----------------------------
-# Data Validation
-# ----------------------------
-
-# ----------------------------
-# Database (Async)
+# Database & Cache
 # ----------------------------
 sqlalchemy==2.0.28
 asyncpg==0.29.0
-
-# ----------------------------
-# Redis
-# ----------------------------
+psycopg2-binary==2.9.11
 redis==5.0.3
 
 # ----------------------------
-# AI / RAG
+# CPU-only Torch (CRITICAL)
+# ----------------------------
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.2.2+cpu ; platform_system == "Linux"
+
+# ----------------------------
+# Retrieval & Agents
 # ----------------------------
 sentence-transformers==2.5.1
 faiss-cpu==1.7.4
@@ -28,12 +27,12 @@ langchain==0.1.16
 langgraph==0.0.39
 
 # ----------------------------
-# Safety & Security
+# Security / PII
 # ----------------------------
 presidio-analyzer==2.2.353
 
 # ----------------------------
-# Observability
+# Logging & Config
 # ----------------------------
 structlog==24.1.0
 python-json-logger==2.0.7
