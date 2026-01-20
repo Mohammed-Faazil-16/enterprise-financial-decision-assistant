@@ -70,3 +70,9 @@ desktop.ini
 *.bak
 *.swp
 *.swo
+
+####################################
+# LOCAL EXTRACTION / GENERATED FILES
+####################################
+ALL_CODE.txt
+extraction.py
