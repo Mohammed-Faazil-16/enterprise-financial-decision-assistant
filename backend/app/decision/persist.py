@@ -4,6 +4,7 @@ from app.db.models.decision import Decision
 from app.db.models.audit_log import AuditLog
 
 async def persist_decision(session: AsyncSession, payload: dict):
+    # 1. Insert decision
     decision_stmt = insert(Decision).values(
         query=payload.get("query"),
         decision=payload.get("decision"),
@@ -11,14 +12,13 @@ async def persist_decision(session: AsyncSession, payload: dict):
     ).returning(Decision.id)
 
     result = await session.execute(decision_stmt)
-    decision_id = result.scalar()
+    decision_id = result.scalar_one()
 
+    # 2. Insert audit log WITH decision_id
     audit_stmt = insert(AuditLog).values(
+        decision_id=decision_id,
         event_type="decision_created",
-        payload={
-            "decision_id": decision_id,
-            "decision": payload,
-        },
+        payload=payload,
     )
 
     await session.execute(audit_stmt)
