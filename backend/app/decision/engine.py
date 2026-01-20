@@ -1,5 +1,7 @@
 from app.retrieval.vector_store import vector_store
 from app.agents.graph import build_decision_graph
+from app.db.session import AsyncSessionLocal
+from app.decision.persist import persist_decision
 
 class DecisionEngine:
     def __init__(self):
@@ -7,17 +9,18 @@ class DecisionEngine:
         self.graph = build_decision_graph()
 
     async def decide(self, query: str) -> dict:
-        # 1️⃣ Retrieve evidence
         evidence = self.vector_store.search(query, top_k=5)
 
-        # 2️⃣ Initialize agent state
         state = {
             "query": query,
             "evidence": evidence,
         }
 
-        # 3️⃣ Run agent graph
         result = await self.graph.ainvoke(state)
+
+        async with AsyncSessionLocal() as session:
+            await persist_decision(session, result)
+
         return result
 
     def health(self):
