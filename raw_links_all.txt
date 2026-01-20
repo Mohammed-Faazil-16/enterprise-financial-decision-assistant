@@ -34,6 +34,7 @@ https://raw.githubusercontent.com/Mohammed-Faazil-16/enterprise-financial-decisi
 https://raw.githubusercontent.com/Mohammed-Faazil-16/enterprise-financial-decision-assistant/main/backend/app/ingestion/ingest.py
 https://raw.githubusercontent.com/Mohammed-Faazil-16/enterprise-financial-decision-assistant/main/backend/app/main.py
 https://raw.githubusercontent.com/Mohammed-Faazil-16/enterprise-financial-decision-assistant/main/backend/app/retrieval/__init__.py
+https://raw.githubusercontent.com/Mohammed-Faazil-16/enterprise-financial-decision-assistant/main/backend/app/retrieval/service.py
 https://raw.githubusercontent.com/Mohammed-Faazil-16/enterprise-financial-decision-assistant/main/backend/app/retrieval/vector_store.py
 https://raw.githubusercontent.com/Mohammed-Faazil-16/enterprise-financial-decision-assistant/main/backend/app/services/__init__.py
 https://raw.githubusercontent.com/Mohammed-Faazil-16/enterprise-financial-decision-assistant/main/backend/requirements.txt
