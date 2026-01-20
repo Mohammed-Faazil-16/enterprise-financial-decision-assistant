@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
+from app.decision.engine import decision_engine
 
 router = APIRouter()
 
@@ -8,7 +9,5 @@ class DecisionRequest(BaseModel):
 
 @router.post("/")
 async def make_decision(payload: DecisionRequest):
-    return {
-        "query": payload.query,
-        "decision": "This is a placeholder financial decision response"
-    }
+    result = await decision_engine.decide(payload.query)
+    return result

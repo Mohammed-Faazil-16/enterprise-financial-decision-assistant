@@ -7,19 +7,13 @@ from app.core.logging import get_logger
 
 logger = get_logger("vector_store")
 
-
 class VectorStore:
-    """
-    FAISS-based vector store.
-    Local-first, disk-persisted, deterministic.
-    """
-
     def __init__(self):
         self.index_path = settings.faiss_index_path
         self.model_name = settings.embedding_model
-        self.embedding_model = SentenceTransformer(self.model_name)
+        self.model = SentenceTransformer(self.model_name)
 
-        self.dim = self.embedding_model.get_sentence_embedding_dimension()
+        self.dim = self.model.get_sentence_embedding_dimension()
         self.index_file = os.path.join(self.index_path, "index.faiss")
         self.text_file = os.path.join(self.index_path, "texts.npy")
 
@@ -34,53 +28,32 @@ class VectorStore:
             self.index = faiss.IndexFlatL2(self.dim)
             self.texts = []
 
-    def add_documents(self, documents: list[str]) -> None:
-        if not documents:
-            return
-
-        embeddings = self.embedding_model.encode(
+    def add_documents(self, documents: list[str]):
+        embeddings = self.model.encode(
             documents,
             convert_to_numpy=True,
             normalize_embeddings=True,
         )
-
         self.index.add(embeddings)
         self.texts.extend(documents)
 
         faiss.write_index(self.index, self.index_file)
         np.save(self.text_file, np.array(self.texts, dtype=object))
 
-        logger.info(
-            "documents_added_to_faiss",
-            count=len(documents),
-            total_vectors=self.index.ntotal,
-        )
-
-    def search(self, query: str, top_k: int = 5) -> list[str]:
+    def search(self, query: str, top_k: int = 5):
         if self.index.ntotal == 0:
             return []
 
-        query_embedding = self.embedding_model.encode(
+        query_emb = self.model.encode(
             [query],
             convert_to_numpy=True,
             normalize_embeddings=True,
         )
 
-        distances, indices = self.index.search(query_embedding, top_k)
-
-        results = []
-        for idx in indices[0]:
-            if idx < len(self.texts):
-                results.append(self.texts[idx])
-
-        return results
+        _, indices = self.index.search(query_emb, top_k)
+        return [self.texts[i] for i in indices[0] if i < len(self.texts)]
 
     def health(self):
-        return {
-            "faiss_vectors": self.index.ntotal,
-            "embedding_model": self.model_name,
-        }
+        return {"faiss_vectors": self.index.ntotal}
 
-
-# GLOBAL INSTANCE
 vector_store = VectorStore()

@@ -1,14 +1,19 @@
 from app.core.logging import get_logger
 
-logger = get_logger()
+logger = get_logger("finalizer")
 
-class FinalizerAgent:
-    async def run(self, state: dict) -> dict:
-        if not state.get("verified"):
-            state["decision"] = "unable_to_confirm"
-            state["confidence"] = 0.2
-            return state
+async def run(state: dict) -> dict:
+    verified = state.get("verified", False)
 
-        state["decision"] = "approved_with_conditions"
-        state["confidence"] = 0.75
-        return state
+    if not verified:
+        decision = "cannot_decide"
+        confidence = 0.2
+    else:
+        decision = "approved_with_conditions"
+        confidence = 0.75
+
+    logger.info(f"decision_finalized decision={decision} confidence={confidence}")
+
+    state["decision"] = decision
+    state["confidence"] = confidence
+    return state
