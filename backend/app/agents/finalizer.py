@@ -3,17 +3,30 @@ from app.core.logging import get_logger
 logger = get_logger("finalizer")
 
 async def run(state: dict) -> dict:
-    verified = state.get("verified", False)
+    plan = state.get("plan")
+    verified = state.get("verified")
+    eligible = state.get("eligible")
+
+    if plan == "insufficient_evidence":
+        state["decision"] = "cannot_decide"
+        state["confidence"] = 0.2
+        return state
 
     if not verified:
-        decision = "cannot_decide"
-        confidence = 0.2
-    else:
-        decision = "approved_with_conditions"
-        confidence = 0.75
+        state["decision"] = "cannot_decide"
+        state["confidence"] = 0.3
+        return state
 
-    logger.info(f"decision_finalized decision={decision} confidence={confidence}")
+    if eligible == "yes":
+        state["decision"] = "approved_with_conditions"
+        state["confidence"] = 0.75
+        return state
 
-    state["decision"] = decision
-    state["confidence"] = confidence
+    if eligible == "no":
+        state["decision"] = "rejected"
+        state["confidence"] = 0.8
+        return state
+
+    state["decision"] = "cannot_decide"
+    state["confidence"] = 0.2
     return state
