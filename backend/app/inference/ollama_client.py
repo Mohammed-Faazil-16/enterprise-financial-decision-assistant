@@ -1,32 +1,25 @@
 import httpx
-from app.core.config import settings
-
+import os
 
 class OllamaClient:
-    """
-    Ollama inference client using the correct Docker API endpoint: /api/generate
-    """
+    def __init__(self):
+        self.base_url = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
+        self.model = "llama3.2-vision:11b-instruct-q4_K_M"
 
-    def __init__(self) -> None:
-        self.base_url = settings.inference_base_url.rstrip("/")
-        self.model = settings.inference_model
-        self.timeout = settings.inference_timeout_seconds
-
-    async def generate(self, prompt: str) -> dict:
+    async def generate(self, prompt: str, images: list[str] | None = None) -> str:
         payload = {
             "model": self.model,
             "prompt": prompt,
-            "stream": False,
+            "stream": False
         }
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        if images:
+            payload["images"] = images  # base64 images later
+
+        async with httpx.AsyncClient(timeout=120) as client:
             response = await client.post(
                 f"{self.base_url}/api/generate",
-                json=payload,
+                json=payload
             )
             response.raise_for_status()
-            data = response.json()
-
-        return {
-            "response": data.get("response", "")
-        }
+            return response.json()["response"]

@@ -11,10 +11,17 @@ You are a conservative financial risk analyst.
 
 Rules:
 - Use ONLY the provided evidence.
-- If evidence is insufficient, say so clearly.
-- Do NOT assume user income, credit score, or documents.
-- Be cautious and explicit.
-- Output MUST be valid JSON.
+- If evidence is insufficient, clearly state what is missing.
+- Do NOT assume income, credit score, or documents.
+- Do NOT approve or reject without facts.
+- Output MUST be valid JSON in this schema:
+
+{
+  "analysis": "...",
+  "eligible": "yes | no | unknown",
+  "decision": "approved | rejected | cannot_decide",
+  "confidence": 0.0
+}
 """
 
 def build_prompt(query: str, evidence: list[str]) -> str:
@@ -23,45 +30,41 @@ def build_prompt(query: str, evidence: list[str]) -> str:
     return f"""
 {SYSTEM_PROMPT}
 
-User Query:
+Query:
 {query}
 
 Evidence:
 {evidence_block}
 
-Respond strictly in JSON with this schema:
-{{
-  "analysis": string,
-  "risk_flags": list[string],
-  "eligible": "yes" | "no" | "unknown"
-}}
+Respond ONLY with valid JSON.
 """
 
 async def run(state: dict) -> dict:
-    query = state.get("query", "")
+    query = state["query"]
     evidence = state.get("evidence", [])
 
-    if not evidence:
-        logger.warning("analysis_skipped_no_evidence")
-        state["analysis"] = ""
-        state["eligible"] = "unknown"
-        return state
+    logger.warning("analyzer_llm_called_no_evidence" if not evidence else "analyzer_llm_called")
 
     prompt = build_prompt(query, evidence)
 
+    raw = await ollama.generate(prompt)
+
     try:
-        response = await ollama.generate(prompt)
-        parsed = json.loads(response)
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.error("analyzer_invalid_json_from_llm")
+        return {
+            **state,
+            "analysis": "",
+            "eligible": "unknown",
+            "decision": "cannot_decide",
+            "confidence": 0.1,
+        }
 
-        state["analysis"] = parsed.get("analysis", "")
-        state["risk_flags"] = parsed.get("risk_flags", [])
-        state["eligible"] = parsed.get("eligible", "unknown")
-
-        logger.info("analysis_completed_llm")
-
-    except Exception as e:
-        logger.exception("analysis_failed_llm")
-        state["analysis"] = ""
-        state["eligible"] = "unknown"
-
-    return state
+    return {
+        **state,
+        "analysis": parsed.get("analysis", ""),
+        "eligible": parsed.get("eligible", "unknown"),
+        "decision": parsed.get("decision", "cannot_decide"),
+        "confidence": float(parsed.get("confidence", 0.2)),
+    }
